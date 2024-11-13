@@ -1,6 +1,8 @@
 const User = require("../db/models/user");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
+const catchAsync = require("../utils/catchAsync");
+const AppError = require("../utils/appError");
 
 const generateToken = (payload) => {
   return jwt.sign(payload, process.env.JWT_SECRET_KEY, {
@@ -8,14 +10,11 @@ const generateToken = (payload) => {
   });
 };
 
-const signUp = async (req, res, next) => {
+const signUp = catchAsync(async (req, res, next) => {
   const body = req.body;
 
   if (!["SELLER", "BUYER"].includes(body.role)) {
-    return res.status(400).json({
-      status: "Fail",
-      message: "Invalid User Role",
-    });
+    throw new AppError("Invalid User Role", 400);
   }
 
   const newUser = await User.create({
@@ -27,6 +26,10 @@ const signUp = async (req, res, next) => {
     confirmPassword: body.confirmPassword,
   });
 
+  if (!newUser) {
+    return next(new AppError("Failed to create the user", 400));
+  }
+
   const result = newUser.toJSON();
 
   delete result.deletedAt;
@@ -37,33 +40,22 @@ const signUp = async (req, res, next) => {
     email: result.email,
   });
 
-  if (!result) {
-    return res.status(500).json({
-      status: "Fail",
-      message: "Failed to create the user",
-    });
-  }
-
   res.status(201).json(result);
-};
+});
 
-const signIn = async (req, res, next) => {
+const signIn = catchAsync(async (req, res, next) => {
   const { email, password } = req.body;
 
   if (!email || !password) {
-    return res.status(400).json({
-      status: "Fail",
-      message: "Please provide email and password to proceed",
-    });
+    return next(
+      new AppError("Please provide email and password to proceed", 400)
+    );
   }
 
   const result = await User.findOne({ where: { email } });
 
   if (!result || !(await bcrypt.compare(password, result.password))) {
-    return res.status(401).json({
-      status: "Fail",
-      message: "Incorrect email or password",
-    });
+    return next(new AppError("Incorrect email or password", 401));
   }
 
   const token = generateToken({
@@ -75,6 +67,6 @@ const signIn = async (req, res, next) => {
     status: "Success",
     token,
   });
-};
+});
 
 module.exports = { signUp, signIn };
