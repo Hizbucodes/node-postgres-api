@@ -3,6 +3,7 @@ const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const catchAsync = require("../utils/catchAsync");
 const AppError = require("../utils/appError");
+const user = require("../db/models/user");
 
 const generateToken = (payload) => {
   return jwt.sign(payload, process.env.JWT_SECRET_KEY, {
@@ -69,4 +70,31 @@ const signIn = catchAsync(async (req, res, next) => {
   });
 });
 
-module.exports = { signUp, signIn };
+const authentication = catchAsync(async (req, res, next) => {
+  // 1. get the token from headers
+  let idToken = "";
+  if (
+    req.headers.authorization &&
+    req.headers.authorization.startsWith("Bearer")
+  ) {
+    idToken = req.headers.authorization.split(" ")[1];
+  }
+
+  if (!idToken) {
+    return next(new AppError("Please login to get access", 401));
+  }
+  // 2. token verification
+  const tokenDetails = jwt.verify(idToken, process.env.JWT_SECRET_KEY);
+  // 3. get the user details from the database and add to req object
+  const freshUser = await user.findByPk(tokenDetails.id);
+
+  if (!freshUser) {
+    return next(new AppError("User no lobger exists", 400));
+  }
+
+  req.user = freshUser;
+
+  return next();
+});
+
+module.exports = { signUp, signIn, authentication };

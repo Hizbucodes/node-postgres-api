@@ -4,6 +4,7 @@ const express = require("express");
 const PORT = process.env.APP_PORT || 4000;
 
 const authRoute = require("./routes/authRoute");
+const projectRoute = require("./routes/projectRoute");
 const catchAsync = require("./utils/catchAsync");
 const AppError = require("./utils/appError");
 const globalErrorHandler = require("./controller/errorController");
@@ -14,6 +15,7 @@ app.use(express.json());
 
 // all routes will be here
 app.use("/api/v1/auth", authRoute);
+app.use("/api/v1/project", projectRoute);
 
 // when there is no route match
 app.use(
